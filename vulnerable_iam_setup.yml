@@ -1,0 +1,34 @@
+#This template creates the entire vulnerable setup: an IAM user with the dangerous "*:*" policy and an access key to use with Pacu.
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Deploys a deliberately vulnerable IAM user for AWS penetration testing
+  with Pacu. **WARNING: This creates a user with full administrative
+  privileges. Handle with care and delete the stack after use.**
+
+Resources:
+  VulnerableUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: pacu-example-user
+      Policies:
+        - PolicyName: GodModePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: "*"
+                Resource: "*"
+
+  VulnerableUserKeys:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref VulnerableUser
+
+Outputs:
+  AccessKey:
+    Value: !Ref VulnerableUserKeys
+    Description: "Access Key ID for the vulnerable user. Use 'aws configure' with this."
+  SecretKey:
+    Value: !GetAtt VulnerableUserKeys.SecretAccessKey
+    Description: "Secret Access Key for the vulnerable user. Handle this securely."
