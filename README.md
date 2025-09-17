@@ -1,48 +1,49 @@
-# AWS IAM Privilege Escalation Analysis with Pacu
+# AWS Cloud Penetration Test: IAM Privilege Escalation with Pacu
 
-## 📌 Overview
-This project demonstrates the identification and validation of privilege-escalation exposure within AWS Identity and Access Management (IAM) using Pacu, an open-source AWS exploitation framework. The analysis focuses on risks posed by wildcard policies and maps potential blast radius across EC2, Lambda, and S3.
+This project is a simulated cloud penetration test focused on identifying and exploiting AWS IAM misconfigurations. Using the open-source exploitation framework Pacu, I successfully identified and mapped multiple privilege escalation paths stemming from a single, overly permissive IAM policy.
 
-## 🎯 Objectives
-- Identify confirmed IAM escalation paths using Pacu’s `iam__privesc_scan`
-- Validate the security risks of wildcard (`*`) actions and resources
-- Visualize the blast radius of potential escalations to critical AWS services
-- Model post-exploitation impact and propose mitigation strategies
+The exercise models a real-world scenario where an attacker with initial, limited access can leverage a common security oversight to achieve full account takeover.
 
-## 🧠 Key Findings
-- **Confirmed Vectors:** `AttachUserPolicy` (self-elevation) and `PassRole` combined with service create/update (service-based lateral movement).
-- **Persistence (not escalation):** `CreateAccessKey` enables long-lived API access outside console MFA.
-- **Wildcard Policy Risk:** Unrestricted policies (`"Action":"*"`, `"Resource":"*"`) permit full API access if attached, enabling takeover scenarios.
-- **Blast Radius:** Elevated access can impact EC2 instances, Lambda functions, and S3 buckets.
+---
+## Methodology: Mapping Escalation Paths
 
-## 🛠️ Tools & Technologies
-- **Pacu** (`iam__privesc_scan`) for escalation-path confirmation
-- **AWS IAM** for policy and trust analysis
-- **Architecture Diagram** to depict vectors and service impact
+The attack methodology assumes an attacker has compromised the credentials of an IAM user. The goal is to escalate privileges by abusing existing permissions. The open-source tool **Pacu** automates the discovery of these escalation paths by scanning the target user's permissions and comparing them against a database of known exploitation techniques. The diagram below illustrates this workflow.
 
-## 📊 Blast-Radius Diagram
-<img width="800" height="590" alt="image" src="https://github.com/user-attachments/assets/38c4ed1a-5d56-419a-85c2-66d5ef25e6c9" />
+<img src="./assets/Network Diagram.jpg" width="800" alt="Diagram of Pacu IAM Privilege Escalation Paths">
+*<p align="center">Figure 1: The attack workflow, from initial scan to privilege escalation.</p>*
 
-**Figure 1: AWS IAM Privilege Escalation Paths (Pacu Analysis Diagram)**  
-Shows how an IAM principal can escalate via **AttachUserPolicy** and **PassRole**, and maintain access via **CreateAccessKey**; maps potential impact across **EC2**, **Lambda**, and **S3**.
+---
+## Execution: Exploitation with Pacu
 
-## 🔍 Escalation Path Breakdown
-| Technique        | Description                                                                 | Notes |
-|------------------|-----------------------------------------------------------------------------|-------|
-| AttachUserPolicy | Attach a high-privilege managed/inline policy to self to gain admin rights. | Confirmed in Pacu output. |
-| PassRole         | Pass a privileged role to a service (e.g., Lambda) and execute under it.    | Requires `iam:PassRole` **and** service create/update perms. |
-| CreateAccessKey  | Generate long-lived API credentials for persistence.                         | Persistence, **not** escalation. |
+The penetration test was conducted in a controlled AWS environment containing a deliberately misconfigured IAM user.
 
-## 🧪 Validation Workflow
-1. **Scan IAM Privileges:** Ran `iam__privesc_scan` in Pacu to enumerate and confirm feasible techniques.
-2. **Assess Wildcards:** Reviewed policies with `Action: *` and `Resource: *` for unrestricted access risk.
-3. **Model Role Assumption:** Mapped `PassRole` paths to service execution for lateral movement.
-4. **Diagram Blast Radius:** Illustrated service-level impact across EC2, Lambda, and S3.
+### The Vulnerability: Unrestricted IAM Policy
+The core of the vulnerability is an inline IAM policy attached to a user, granting unrestricted permissions. The `Effect: "Allow"` combined with `Action: "*"` and `Resource: "*"` is the most dangerous possible configuration, as it effectively gives the user the power to perform any action on any resource within the AWS account, including modifying their own permissions.
 
-## 📘 Documentation
-Findings, the escalation diagram, Pacu console output, and policy JSON are included in the `docs/` folder (Figures 1–3).
+<img src="./assets/Vulnerable IAM policy.jpg" width="800" alt="Screenshot of the vulnerable IAM policy in the AWS Console">
+*<p align="center">Figure 2: The misconfigured inline policy granting god-mode permissions.</p>*
 
-## 👨‍💻 Author
-**Ritvik Indupuri** — Security engineer focusing on adversary emulation, cloud IAM attack paths, and identity governance.
+### The Scan: Identifying Escalation Vectors
+With the credentials for the vulnerable user, I ran Pacu's `iam__privesc_scan` module. This automated scan immediately enumerated the user's permissions and **confirmed over 20 distinct privilege escalation methods**. The tool highlighted critical vectors such as `AttachUserPolicy`, `CreateAccessKey`, and `PassRole`, providing a clear roadmap for an attacker to gain administrative access.
 
+<img src="./assets/Pacu scan.jpg" width="800" alt="Terminal output from Pacu's iam__privesc_scan module">
+*<p align="center">Figure 3: Pacu confirming numerous privilege escalation paths.</p>*
 
+---
+## Impact Analysis & Remediation
+
+The impact of this misconfiguration is a complete account compromise. An attacker could leverage the confirmed vectors to:
+* **`AttachUserPolicy`**: Attach the `AdministratorAccess` managed policy to their own user.
+* **`CreateAccessKey`**: Create new, persistent access keys for any user, including the root user.
+* **`PassRole`**: Pass a highly privileged role to an EC2 instance they control, inheriting its permissions.
+
+**Remediation** involves adhering to the **principle of least privilege**. Administrative permissions like `iam:*` should be heavily restricted. Tools like **AWS IAM Access Analyzer** should be used proactively to identify and remediate overly permissive policies before they can be exploited.
+
+---
+## 🚀 Skills & Technologies
+
+* **Cloud Penetration Testing:** Simulating real-world attacks against cloud infrastructure.
+* **AWS Identity and Access Management (IAM):** Deep understanding of IAM policies, users, roles, and permission boundaries.
+* **Privilege Escalation:** Identifying and exploiting misconfigurations to gain elevated permissions.
+* **Pacu Framework:** Utilizing offensive security tools to automate cloud exploitation.
+* **Threat Modeling & Vulnerability Analysis:** Analyzing IAM configurations for potential security risks and understanding their impact.
